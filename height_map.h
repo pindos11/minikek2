@@ -1,7 +1,5 @@
-#define HMAP_SIZEX 150
-#define HMAP_SIZEY 20
 #define START_POINTS_PERCENT 5.0
-#define MAX_HGT 10.0
+#define MAX_HGT 40.0
 #define SMOOTH_N 1
 
 class height_map_position{
@@ -30,6 +28,28 @@ class map_triangle{
 			z2 = -300;
 			z3 = -300;
 		}
+		int is_point_on_me(float x, float y){
+			float l1 = (x1-x)*(y2-y1)-(x2-x1)*(y1-y);
+			if(l1<0){
+				return 0;
+			}
+			
+			l1 = (x2-x)*(y3-y2)-(x3-x2)*(y2-y);
+			if(l1<0){
+				return 0;
+			}
+			
+			l1 = (x3-x)*(y1-y3)-(x1-x3)*(y3-y);
+			if(l1<0){
+				return 0;
+			}
+			return 1;
+		}
+		float height_on_me(float x, float y){
+			float div1 = nx*x1-nx*x+ny*y1-ny*y+nz*z1;
+			float result = div1/nz;
+			return result;
+		}
 		float x1;
 		float x2;
 		float x3;
@@ -53,18 +73,27 @@ class map_triangle{
 		float nx3;
 		float ny3;
 		float nz3;
+		
+		float nx;
+		float ny;
+		float nz;
 };
 
 class height_map{
 	protected:
-		height_map_position map[HMAP_SIZEX][HMAP_SIZEY];
-		height_map_position map2[HMAP_SIZEX][HMAP_SIZEY];
+		std::vector<std::vector<height_map_position>> map;
+		std::vector<std::vector<height_map_position>> map2;
+		//height_map_position map[HMAP_SIZEX][HMAP_SIZEY];
+		//height_map_position map2[HMAP_SIZEX][HMAP_SIZEY];
 	public:
 		std::vector<map_triangle> triangles;
 		float fill_triangles(){
-			for(int i = 0; i<HMAP_SIZEX-1; i++){
-				for(int j = 0; j<HMAP_SIZEY-1; j++){
+			for(int i = 0; i<setting.map_size_x-1; i++){
+				for(int j = 0; j<setting.map_size_y-1; j++){
 					map_triangle triangle;
+					height_map_position a;
+					height_map_position b;
+					height_map_position c;
 					triangle.x1 = i;
 					triangle.x2 = i+1;
 					triangle.x3 = i;
@@ -73,9 +102,13 @@ class height_map{
 					triangle.y2 = j;
 					triangle.y3 = j+1;
 					
-					triangle.z1 = map[i][j].height;
-					triangle.z2 = map[i+1][j].height;
-					triangle.z3 = map[i][j+1].height;
+					a = map[i][j];
+					b = map[i+1][j]; //at(i+1).at(j)
+					c = map[i][j+1]; //at(i).at(j+1)
+					
+					triangle.z1 = a.height;
+					triangle.z2 = b.height;
+					triangle.z3 = c.height;
 					
 					float ax = triangle.x1 - triangle.x2;
 					float ay = triangle.y1 - triangle.y2;
@@ -97,6 +130,10 @@ class height_map{
 					triangle.ny3 = triangle.ny1;
 					triangle.nz3 = triangle.nz1;
 					
+					triangle.nx = triangle.nx1;
+					triangle.ny = triangle.ny1;
+					triangle.nz = triangle.nz1;
+					
 					triangles.push_back(triangle);
 					
 					triangle.x1 = i+1;
@@ -106,10 +143,14 @@ class height_map{
 					triangle.y1 = j;
 					triangle.y2 = j+1;
 					triangle.y3 = j+1;
+					
+					a = map[i+1][j];
+					b = map[i+1][j+1];
+					c = map[i][j+1];
 					           
-					triangle.z1 = map[i+1][j].height;
-					triangle.z2 = map[i+1][j+1].height;
-					triangle.z3 = map[i][j+1].height;
+					triangle.z1 = a.height;
+					triangle.z2 = b.height;
+					triangle.z3 = c.height;
 					
 					ax = triangle.x1 - triangle.x2;
 					ay = triangle.y1 - triangle.y2;
@@ -131,13 +172,17 @@ class height_map{
 					triangle.ny3 = triangle.ny1;
 					triangle.nz3 = triangle.nz1;
 					
+					triangle.nx = triangle.nx1;
+					triangle.ny = triangle.ny1;
+					triangle.nz = triangle.nz1;
+					
 					triangles.push_back(triangle);
 				}
 			}
 			for(int sm=0; sm<SMOOTH_N; sm++){
 			//normals smoothening
-				for(int i = 0; i<HMAP_SIZEX; i++){
-					for(int j = 0; j<HMAP_SIZEY; j++){
+				for(int i = 0; i<setting.map_size_x; i++){
+					for(int j = 0; j<setting.map_size_y; j++){
 						float tnx = 0.0;
 						float tny = 0.0;
 						float tnz = 0.0;
@@ -195,12 +240,20 @@ class height_map{
 		}
 		
 		height_map(){
-			for(int i = 0; i<HMAP_SIZEX; i++){
-				for(int j = 0; j<HMAP_SIZEY; j++){
-					map[i][j] = height_map_position();
-					map2[i][j] = height_map_position();
+			setting.read_settings();
+			for(int i = 0; i<setting.map_size_x; i++){
+				std::vector<height_map_position> line;
+				std::vector<height_map_position> line2;
+				for(int j = 0; j<setting.map_size_y; j++){
+					height_map_position f;
+					height_map_position d;
+					line.push_back(f);
+					line2.push_back(d);
 				}
+				map.push_back(line);
+				map2.push_back(line2);
 			}
+			std::cout<<"filled"<<'\n';
 		}
 		float get_rand_height(){
 			float result = rand_gen.get_folated();
@@ -229,45 +282,22 @@ class height_map{
 		
 		
 		float get_point_height(int x, int y){
-			if(x>=0 && x<HMAP_SIZEX && y>=0 && y<HMAP_SIZEY){
-				return map[x][y].height;
+			if(x>=0 && x<setting.map_size_x && y>=0 && y<setting.map_size_y){
+				height_map_position f;
+				f = map[x][y];
+				return f.height;
 			}
 			return -MAX_HGT - 1;
 		}
 		
 		float get_point_height_walk(float x, float y){
-			int x1 = floor(x);
-			int x2 = ceil(x);
+			for(int i=0; i<triangles.size();i++){
+				map_triangle a = triangles[i];
+				if(a.is_point_on_me(x,y)==1){
+					return a.height_on_me(x,y);
+				}
+			}
 			
-			int y1 = floor(y);
-			int y2 = ceil(y);
-			
-			
-			float tot_h = 0.0;
-			float amt = 0.0;
-			float temph = 0.0;
-			temph = get_point_height(x1,y1);
-			if(temph != -MAX_HGT - 1){
-				amt+=1.0;
-				tot_h+=temph;
-			}
-			temph = get_point_height(x1,y2);
-			if(temph != -MAX_HGT - 1){
-				amt+=1.0;
-				tot_h+=temph;
-			}
-			temph = get_point_height(x2,y2);
-			if(temph != -MAX_HGT - 1){
-				amt+=1.0;
-				tot_h+=temph;
-			}
-			temph = get_point_height(x2,y1);
-			if(temph != -MAX_HGT - 1){
-				amt+=1.0;
-				tot_h+=temph;
-			}
-			tot_h = tot_h/amt;
-			return tot_h;
 		}
 		
 		float get_smooth_near(int x, int y){
@@ -350,35 +380,31 @@ class height_map{
 			return tot_h;
 		}
 		void generate_map(int seed, float multiplier){		
-			for(int i = 0; i<HMAP_SIZEX; i++){
-				for(int j = 0; j<HMAP_SIZEY; j++){
-					map[i][j].height = get_rand_height();
+			for(int i = 0; i<setting.map_size_x; i++){
+				for(int j = 0; j<setting.map_size_y; j++){
+					map.at(i).at(j).height = get_rand_height();
 				}
 			}
+			std::cout<<"generated"<<'\n';
 			//smooth shit
-			for(int ctr = 0; ctr<13; ctr++){
-				for(int i = 0; i<HMAP_SIZEX; i++){
-					for(int j = 0; j<HMAP_SIZEY; j++){
+			for(int ctr = 0; ctr<5; ctr++){
+				for(int i = 0; i<setting.map_size_x; i++){
+					for(int j = 0; j<setting.map_size_y; j++){
 						float newval = get_smooth_near(i,j);
-						map2[i][j].height = newval;
+						map2.at(i).at(j).height = newval;
 					}
 				}
-				for(int i = 0; i<HMAP_SIZEX; i++){
-					for(int j = 0; j<HMAP_SIZEY; j++){
-						map[i][j].height = map2[i][j].height;
+				for(int i = 0; i<setting.map_size_x; i++){
+					for(int j = 0; j<setting.map_size_y; j++){
+						height_map_position f;
+						f = map2[i][j];
+						map.at(i).at(j).height = f.height;
 					}
 				}
 			}
+			std::cout<<"smoothed"<<'\n';
 			fill_triangles();
 					
-		}
-		void write_map(){
-			for(int i = 0; i<HMAP_SIZEX; i++){
-				for(int j = 0; j<HMAP_SIZEY; j++){
-					std::cout<<(map[i][j].height+1.0)/2.0<<' ';
-				}
-			//	std::cout<<'\n';
-			}
 		}
 		
 };

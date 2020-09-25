@@ -5,6 +5,8 @@
 #include <GL/freeglut.h>
 #include <GL/freeglut_ext.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <sys/time.h>
 #include <string>
 #include <windows.h>
@@ -13,11 +15,15 @@
 #include <fstream>
 #include <vector>
 #include <math.h> 
+#include "read_settings.h"
 #include "id_gen.h"
 #include "random_gen.h"
 #include "height_map.h"
 
 height_map hmap;
+long int stime;
+
+
 struct win_cond{
 	int s_width;
 	int s_height;
@@ -63,14 +69,6 @@ void contr_mouse(int button, int state, int x, int y){
 	if(button==GLUT_RIGHT_BUTTON){
 		return;
 	}
-	if(state==GLUT_DOWN){
-		condition.x_press = x;
-		condition.y_press = y;
-		condition.pressed = 1;
-	}
-	else{
-		condition.pressed = 0;
-	}
 }
 
 void mouse_move(int x, int y){
@@ -82,14 +80,9 @@ void mouse_move(int x, int y){
 	condition.x_press = x;
 	condition.y_press = y;
 	
-	dm_x = dm_x/(float)condition.s_width * 90;
-	condition.x_cam_ang += dm_x/6.5;
+	dm_x = dm_x/(float)condition.s_width * setting.fov;
+	condition.x_cam_ang += dm_x/setting.x_screen_div;
 	//std::cout<<dm_x<<": "<<condition.x_cam_ang<<'\n';
-	float dmx;
-	float dmy;
-	dmx = condition.x_cam_view - condition.x_cam_pos;
-	dmy = condition.y_cam_view - condition.y_cam_pos;
-	float rad = sqrt(dmx*dmx + dmy*dmy);
 	//std::cout<<rad<<'M'<<'\n';
 	
 	condition.x_cam_view = condition.radius*cos(condition.x_cam_ang);
@@ -99,32 +92,34 @@ void mouse_move(int x, int y){
 	condition.y_cam_view += condition.y_cam_pos;
 	
 	//height
-	dm_y = dm_y/(float)condition.s_height * 90;
-	condition.y_cam_ang += dm_y*3.5;
+	dm_y = dm_y/(float)condition.s_height * setting.fov;
+	condition.y_cam_ang += dm_y*setting.y_screen_mul;
+	if(condition.y_cam_ang > setting.fov){
+		condition.y_cam_ang = setting.fov;
+	}
+	if(condition.y_cam_ang < -setting.fov){
+		condition.y_cam_ang = -setting.fov;
+	}
+	
 	condition.z_cam_view = condition.y_cam_ang;
 	
 	glutWarpPointer(condition.s_width/2,condition.s_height/2);
 }
 
-void contr_btns(int key, int x, int y){
+void contr_btns(unsigned char key, int x, int y){
 	float dmx;
 	float dmy;
+	float length;
+	//std::cout<<(int)key<<'\n';
 	switch(key){
-		case GLUT_KEY_F1:
-			condition.world_speed += 0.00000005;
-			break;
-		case GLUT_KEY_F2:
-			condition.world_speed -= 0.00000005;
-			if(condition.world_speed < 0){
-				condition.world_speed = 0;
-			}
-			break;	
-		case GLUT_KEY_UP:
+		case 246:
+		case 119:
 			dmx = condition.x_cam_view - condition.x_cam_pos;
 			dmy = condition.y_cam_view - condition.y_cam_pos;
 			
-			dmx*=0.005;
-			dmy*=0.005;
+			length = sqrt(dmx*dmx + dmy*dmy);
+			dmx/= length*setting.move_multiplier;
+			dmy/= length*setting.move_multiplier;
 			
 			//std::cout<<dmx<<' '<<dmy<<'\n';
 			
@@ -134,19 +129,62 @@ void contr_btns(int key, int x, int y){
 			condition.x_cam_pos += dmx;
 			condition.y_cam_pos += dmy;
 			break;	
-		case GLUT_KEY_DOWN:
+		case 251:
+		case 115:
 			dmx = condition.x_cam_view - condition.x_cam_pos;
 			dmy = condition.y_cam_view - condition.y_cam_pos;
 			
-			dmx*=0.005;
-			dmy*=0.005;
+			length = sqrt(dmx*dmx + dmy*dmy);
+			dmx/= length*setting.move_multiplier;
+			dmy/= length*setting.move_multiplier;
 			
 			condition.x_cam_view -= dmx;
 			condition.y_cam_view -= dmy;
 			
 			condition.x_cam_pos -= dmx;
 			condition.y_cam_pos -= dmy;
-			break;	
+			break;
+		case 244:
+		case 97: //a	
+			dmx = condition.radius*cos(setting.strafe_angle+condition.x_cam_ang);
+			dmy = condition.radius*sin(setting.strafe_angle+condition.x_cam_ang);
+			
+			length = sqrt(dmx*dmx + dmy*dmy);
+			dmx/= length*setting.move_multiplier;
+			dmy/= length*setting.move_multiplier;
+			
+			condition.x_cam_view += dmx;
+			condition.y_cam_view += dmy;
+			
+			condition.x_cam_pos += dmx;
+			condition.y_cam_pos += dmy;
+			break;
+		case 226:
+		case 100:
+			dmx = condition.radius*cos(setting.strafe_angle+condition.x_cam_ang);
+			dmy = condition.radius*sin(setting.strafe_angle+condition.x_cam_ang);
+			
+			length = sqrt(dmx*dmx + dmy*dmy);
+			dmx/= length*setting.move_multiplier;
+			dmy/= length*setting.move_multiplier;
+			
+			condition.x_cam_view -= dmx;
+			condition.y_cam_view -= dmy;
+			
+			condition.x_cam_pos -= dmx;
+			condition.y_cam_pos -= dmy;
+			break;
+		case 122:
+			if(condition.pressed==0){
+				condition.pressed = 1;
+			}
+			else{
+				condition.pressed = 0;
+			}
+			break;
+		case 27:
+			exit(0);
+			break;
 		default:
 			break;
 	}
@@ -176,7 +214,6 @@ void zooming(int wheel, int direction, int x, int y){
 void display(){
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  
 	glMatrixMode(GL_MODELVIEW);      
-	condition.z_cam_pos = hmap.get_point_height_walk(condition.x_cam_pos,condition.y_cam_pos)+2.7;
 	//glRotatef(condition.x_cam_ang,condition.x_cam_pos,condition.y_cam_pos,1);
     
 	glPushMatrix();
@@ -184,41 +221,81 @@ void display(){
 	//glScalef(8,8,8);
 	//	glTranslatef(condition.x_trans,condition.y_trans,0);
 		glScalef(condition.hgt,condition.hgt,condition.hgt);
-		
 		gluLookAt(
-			condition.x_cam_pos,
-			condition.y_cam_pos,
-			condition.z_cam_pos,
-			condition.x_cam_view,
-			condition.y_cam_view,
-			condition.z_cam_view,
-			0,
-			0,
-			1 );
-		
-		glColor4f(.15,.15,.15,.25);
+			condition.x_cam_pos, condition.y_cam_pos, condition.z_cam_pos,
+			condition.x_cam_view, condition.y_cam_view, condition.z_cam_view,
+			0, 0, 1 );
 		glLineWidth(0.2);
+		//water
+		
 		for(int i=0; i<=hmap.triangles.size(); i++){
 			map_triangle a = hmap.triangles[i];	
 			glBegin(GL_TRIANGLES);
-				glNormal3f(a.nx1,a.ny1,a.nz1);
-				glVertex3f(a.x1,a.y1,a.z1);
+				glColor3f(.65,.65,.45);
+				if(condition.pressed==0){
+					glNormal3f(a.nx1,a.ny1,a.nz1);
+					if(a.z1>1.2){
+						glColor3f(.35,.65,.35);
+					}
+					else{
+						glColor3f(.65,.65,.45);
+					}
+					glVertex3f(a.x1,a.y1,a.z1);
 				
-				glNormal3f(a.nx2,a.ny2,a.nz2);
-				glVertex3f(a.x2,a.y2,a.z2);
+					glNormal3f(a.nx2,a.ny2,a.nz2);
+					if(a.z2>1.2){
+						glColor3f(.35,.65,.35);
+					}
+					else{
+						glColor3f(.65,.65,.45);
+					}
+					glVertex3f(a.x2,a.y2,a.z2);
 				
-				glNormal3f(a.nx3,a.ny3,a.nz3);
-				glVertex3f(a.x3,a.y3,a.z3);
+					glNormal3f(a.nx3,a.ny3,a.nz3);
+					if(a.z3>1.2){
+						glColor3f(.35,.65,.35);
+					}
+					else{
+						glColor3f(.65,.65,.45);
+					}
+					glVertex3f(a.x3,a.y3,a.z3);
+				}
+				else{
+					glNormal3f(a.nx,a.ny,a.nz);
+					glVertex3f(a.x1,a.y1,a.z1);
+
+					glVertex3f(a.x2,a.y2,a.z2);
+
+					glVertex3f(a.x3,a.y3,a.z3);
+				}
 			glEnd();
 		}
-    GLfloat light0_direction[] = {25.0,25.0,35.0,1.0};
-	
-    glLightfv(GL_LIGHT1, GL_POSITION,light0_direction);
+		glEnable(GL_BLEND);
+		glBegin(GL_POLYGON);
+			glColor4f(.15,.15,.85,0.45);
+			glNormal3f(0,0,1);
+			glVertex3f(0,0,0);
+			glVertex3f(setting.map_size_x,0,0);
+			glVertex3f(setting.map_size_x,setting.map_size_y,0);
+			glVertex3f(0,setting.map_size_y,0);
+		glEnd();
+		glDisable(GL_BLEND);
+    	GLfloat light0_direction[] = {25.0,25.0,35.0,1.0};
+    	glLightfv(GL_LIGHT1, GL_POSITION,light0_direction);
     glPopMatrix();
     
-    glutSwapBuffers(); 
-    //glDisable(GL_LIGHT0);
-    
+    glutSwapBuffers();  
+}
+void calculations(){
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+	ms = abs(ms);
+	long int dtime = abs(stime-ms);
+	if(dtime>=100){
+		condition.z_cam_pos = hmap.get_point_height_walk(condition.x_cam_pos,condition.y_cam_pos)+setting.cam_height;
+		display();
+	}	
 }
 
 void InitGL(){
@@ -232,20 +309,25 @@ void InitGL(){
   	
   	
 	glutDisplayFunc(display);
-	glutIdleFunc(display);
+	glutIdleFunc(calculations);
 	glutReshapeFunc(resize);
-	glutSpecialFunc(contr_btns);
+	//glutSpecialFunc(contr_btns);
 	glutMouseFunc(contr_mouse);
 	glutPassiveMotionFunc(mouse_move);
 	glutMouseWheelFunc(zooming);
+	glutKeyboardFunc(contr_btns);
 	
 	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_COLOR_MATERIAL);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_NORMALIZE);
 	glEnable(GL_LIGHTING);
 	glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-	glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
-	glEnable(GL_CULL_FACE);
+	//glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
+	//glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_ALPHA_TEST);
 	
 	//textures[0] = LoadTexture("models/Sun/p.bmp");
 	//textures[1] = LoadTexture("models/Mercury/p.bmp");
@@ -261,12 +343,12 @@ void InitGL(){
 	glMatrixMode(GL_PROJECTION);  
 	//float dwidth = ((float)condition.s_width/(float)condition.s_height)/1.0;
 	//glOrtho(-condition.s_width,condition.s_width,-condition.s_height,condition.s_height,-40,40);
-	gluPerspective (90, GLfloat(condition.s_width/condition.s_height), 0.001, 400);
+	gluPerspective (setting.fov, GLfloat(condition.s_width/condition.s_height), 0.001, 400);
 	
 	//a.lWave("ambient.wav");
 	//a.play();
 	glEnable(GL_LIGHT1);
-	GLfloat light0_diffuse[] = {0.6, 0.6, 0.2};
+	GLfloat light0_diffuse[] = {0.9, 0.9, 0.9};
     glLightfv(GL_LIGHT1, GL_DIFFUSE, light0_diffuse);
 	
 	glutMainLoop(); 
@@ -293,5 +375,6 @@ int main(int argc, char** argv) {
     condition.w_width = condition.s_width;
     condition.x_press = condition.s_width/2;
     condition.y_press = condition.s_height/2;
+    setting.read_settings();
 	InitGL();
 }

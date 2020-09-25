@@ -1,0 +1,9 @@
+fov=60.0
+ftm=100.0
+tan=90.0
+smu=10.0
+rox=6.5
+roy=4.5
+hgt=0.7
+msx=70
+msy=70
