@@ -9,6 +9,8 @@ class settings{
 		float cam_height;
 		int map_size_x;
 		int map_size_y;
+		float jump_power;
+		float jump_speed;
 		void read_settings(){
 			std::string line;
 			std::fstream in("settings.txt");
@@ -41,6 +43,12 @@ class settings{
 					if(line.substr(0,3)=="msy"){
 						map_size_y = std::stoi(line.substr(4));
 						//std::cout<<map_size_y<<'\n';
+					}
+					if(line.substr(0,3)=="jmp"){
+						jump_power = std::stof(line.substr(4));
+					}
+					if(line.substr(0,3)=="jms"){
+						jump_speed = std::stof(line.substr(4));
 					}
 					
 				}

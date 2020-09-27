@@ -50,6 +50,9 @@ class map_triangle{
 			float result = div1/nz;
 			return result;
 		}
+		float get_medium_height(){
+			return (z1+z2+z3)/3.0;
+		}
 		float x1;
 		float x2;
 		float x3;
@@ -83,6 +86,7 @@ class height_map{
 	protected:
 		std::vector<std::vector<height_map_position>> map;
 		std::vector<std::vector<height_map_position>> map2;
+		std::vector<std::vector<height_map_position>> plains;
 		//height_map_position map[HMAP_SIZEX][HMAP_SIZEY];
 		//height_map_position map2[HMAP_SIZEX][HMAP_SIZEY];
 	public:
@@ -244,16 +248,26 @@ class height_map{
 			for(int i = 0; i<setting.map_size_x; i++){
 				std::vector<height_map_position> line;
 				std::vector<height_map_position> line2;
+				std::vector<height_map_position> line3;
 				for(int j = 0; j<setting.map_size_y; j++){
 					height_map_position f;
 					height_map_position d;
+					height_map_position s;
 					line.push_back(f);
 					line2.push_back(d);
+					line3.push_back(s);
 				}
 				map.push_back(line);
 				map2.push_back(line2);
+				plains.push_back(line3);
 			}
 			std::cout<<"filled"<<'\n';
+			
+			for(int i=10; i<25;i++){
+				for(int j=10; j<25;j++){
+					plains.at(i).at(j).height = 2;
+				}
+			}
 		}
 		float get_rand_height(){
 			float result = rand_gen.get_folated();
@@ -379,23 +393,48 @@ class height_map{
 			}
 			return tot_h;
 		}
+		
+		int is_on_plain(int x, int y){
+			if(plains.at(x).at(y).height != -MAX_HGT - 1){
+				return 1;
+			}
+			return 0;
+		}
+		
+		void apply_plains(){
+			for(int i = 0; i<setting.map_size_x; i++){
+				for(int j = 0; j<setting.map_size_y; j++){
+					if(is_on_plain(i,j)==1){
+						map.at(i).at(j).height = plains.at(i).at(j).height;
+					}
+				}
+			}
+		}
+		
 		void generate_map(int seed, float multiplier){		
 			for(int i = 0; i<setting.map_size_x; i++){
 				for(int j = 0; j<setting.map_size_y; j++){
 					map.at(i).at(j).height = get_rand_height();
 				}
 			}
+			apply_plains();
 			std::cout<<"generated"<<'\n';
 			//smooth shit
 			for(int ctr = 0; ctr<5; ctr++){
 				for(int i = 0; i<setting.map_size_x; i++){
 					for(int j = 0; j<setting.map_size_y; j++){
+						if(is_on_plain(i,j)==1){
+							continue;
+						}
 						float newval = get_smooth_near(i,j);
 						map2.at(i).at(j).height = newval;
 					}
 				}
 				for(int i = 0; i<setting.map_size_x; i++){
 					for(int j = 0; j<setting.map_size_y; j++){
+						if(is_on_plain(i,j)==1){
+							continue;
+						}
 						height_map_position f;
 						f = map2[i][j];
 						map.at(i).at(j).height = f.height;
