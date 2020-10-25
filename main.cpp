@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <regex>
 #include <sys/time.h>
 #include <string>
 #include <windows.h>
@@ -15,6 +16,7 @@
 #include <fstream>
 #include <vector>
 #include <math.h> 
+#include "obj_reader.h"
 #include "read_settings.h"
 #include "id_gen.h"
 #include "random_gen.h"
@@ -23,6 +25,7 @@
 
 height_map hmap;
 long int stime;
+int rotat;
 GLuint textures[10];
 
 struct win_cond{
@@ -185,116 +188,189 @@ void contr_release_btns(unsigned char key, int x, int y){
 	
 }
 
+void draw_model(vec3 pos, vec3 scale, vec3 rot_angs, int model, int texture){
+	glBindTexture(GL_TEXTURE_2D,textures[texture]);
+	glTranslatef(pos.x,pos.y,pos.z);
+	glScalef(scale.x,scale.y,scale.z);
+	glRotatef(rot_angs.x,1,0,0);
+	glRotatef(rot_angs.y,0,1,0);
+	glRotatef(rot_angs.z,0,0,1);
+	
+	
+	
+	if(bodies[model].meshes3.size()!=0){
+		for(int i=0; i<bodies[model].meshes3.size();i++){
+			mesh3 a = bodies[model].meshes3[i];
+			glBegin(GL_TRIANGLES);
+				glTexCoord2f(bodies[model].textures[a.t1].x,bodies[model].textures[a.t1].y);
+				glNormal3f(bodies[model].normals[a.n1].x,bodies[model].normals[a.n1].y,bodies[model].normals[a.n1].z);
+				glVertex3f(bodies[model].verticles[a.v1].x,bodies[model].verticles[a.v1].y,bodies[model].verticles[a.v1].z);
+				
+				glTexCoord2f(bodies[model].textures[a.t2].x,bodies[model].textures[a.t2].y);
+				glNormal3f(bodies[model].normals[a.n2].x,bodies[model].normals[a.n2].y,bodies[model].normals[a.n2].z);
+				glVertex3f(bodies[model].verticles[a.v2].x,bodies[model].verticles[a.v2].y,bodies[model].verticles[a.v2].z);
+				
+				glTexCoord2f(bodies[model].textures[a.t3].x,bodies[model].textures[a.t3].y);
+				glNormal3f(bodies[model].normals[a.n3].x,bodies[model].normals[a.n3].y,bodies[model].normals[a.n3].z);
+				glVertex3f(bodies[model].verticles[a.v3].x,bodies[model].verticles[a.v3].y,bodies[model].verticles[a.v3].z);
+			glEnd();
+		}
+	}
+	if(bodies[model].meshes4.size()!=0){
+		for(int i=0; i<bodies[model].meshes4.size();i++){
+			mesh4 a = bodies[model].meshes4[i];
+			glBegin(GL_QUADS);
+				glNormal3f(bodies[model].normals[a.n1].x,bodies[model].normals[a.n1].y,bodies[model].normals[a.n1].z);
+				glTexCoord2f(bodies[model].textures[a.t1].x,bodies[model].textures[a.t1].y);
+				glVertex3f(bodies[model].verticles[a.v1].x,bodies[model].verticles[a.v1].y,bodies[model].verticles[a.v1].z);
+				
+				glNormal3f(bodies[model].normals[a.n2].x,bodies[model].normals[a.n2].y,bodies[model].normals[a.n2].z);
+				glTexCoord2f(bodies[model].textures[a.t2].x,bodies[model].textures[a.t2].y);
+				glVertex3f(bodies[model].verticles[a.v2].x,bodies[model].verticles[a.v2].y,bodies[model].verticles[a.v2].z);
+				
+				glNormal3f(bodies[model].normals[a.n3].x,bodies[model].normals[a.n3].y,bodies[model].normals[a.n3].z);
+				glTexCoord2f(bodies[model].textures[a.t3].x,bodies[model].textures[a.t3].y);
+				glVertex3f(bodies[model].verticles[a.v3].x,bodies[model].verticles[a.v3].y,bodies[model].verticles[a.v3].z);
+				
+				glNormal3f(bodies[model].normals[a.n4].x,bodies[model].normals[a.n4].y,bodies[model].normals[a.n4].z);
+				glTexCoord2f(bodies[model].textures[a.t4].x,bodies[model].textures[a.t4].y);
+				glVertex3f(bodies[model].verticles[a.v4].x,bodies[model].verticles[a.v4].y,bodies[model].verticles[a.v4].z);
+			glEnd();
+		}
+	}
+	
+	
+	glRotatef(-rot_angs.z,0,0,1);
+	glRotatef(-rot_angs.y,0,1,0);
+	glRotatef(-rot_angs.x,1,0,0);
+	glScalef(1.0/scale.x,1.0/scale.y,1.0/scale.z);
+	glTranslatef(-pos.x,-pos.y,-pos.z);
+	glBindTexture(GL_TEXTURE_2D,0);
+}
+
 void display(){
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  
 	glMatrixMode(GL_MODELVIEW);      
     
 	glPushMatrix();
 	glLoadIdentity(); 
-		if(condition.z_pressed == 1){
-			glEnable(GL_MULTISAMPLE_ARB);
-		}
-		else{
-			glDisable(GL_MULTISAMPLE_ARB);
-		}
 		gluLookAt(
 			condition.x_cam_pos, condition.y_cam_pos, condition.z_cam_pos,
 			condition.x_cam_view, condition.y_cam_view, condition.z_cam_view,
 			0, 0, 1 );
-		glLineWidth(0.2);
-		//water
-		//glBindTexture(GL_TEXTURE_2D,textures[0]);
+		
+		//light
+		GLfloat light1_direction[] = {condition.x_cam_pos,condition.y_cam_pos,condition.z_cam_pos+2,1.0};
+		const GLfloat light1_att = 0.1;
+    	glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, light1_att);
+    	glLightfv(GL_LIGHT1, GL_POSITION,light1_direction);
+    	glEnable(GL_LIGHT1);
+    	
+		glBindTexture(GL_TEXTURE_2D,textures[0]);
 		//glBindTexture( GL_TEXTURE_2D, 0);
 		glDepthFunc(GL_LESS);
-		for(int i=0; i<=hmap.triangles.size(); i++){
-			map_triangle a = hmap.triangles[i];	
+		triangles_pack map_draw = hmap.get_to_draw(condition.x_cam_pos,condition.y_cam_pos);
+		for(int i=0; i<map_draw.data.size(); i++){
+			map_triangle a = map_draw.data[i];	
 			glBegin(GL_TRIANGLES);
-				glColor3f(.65,.65,.45);
-				if(1){//condition.z_pressed==0){
-					glNormal3f(a.nx1,a.ny1,a.nz1);
-					if(a.z1>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						if(a.z1<0.1){
-							glColor3f(.45,.45,.25);
-						}
-						else{
-							glColor3f(.65,.65,.45);
-						}
-					}
-					glVertex3f(a.x1,a.y1,a.z1);
-				
-					glNormal3f(a.nx2,a.ny2,a.nz2);
-					if(a.z2>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						if(a.z2<0.1){
-							glColor3f(.45,.45,.25);
-						}
-						else{
-							glColor3f(.65,.65,.45);
-						}
-					}
-					glTexCoord2f(1.0,0.0);
-					glVertex3f(a.x2,a.y2,a.z2);
-				
-					glNormal3f(a.nx3,a.ny3,a.nz3);
-					if(a.z3>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						if(a.z3<0.1){
-							glColor3f(.45,.45,.25);
-						}
-						else{
-							glColor3f(.65,.65,.45);
-						}
-					}
-					glVertex3f(a.x3,a.y3,a.z3);
-				}
-				else{
-					glNormal3f(a.nx,a.ny,a.nz);
-					if(a.z1>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						glColor3f(.65,.65,.45);
-					}
-					glVertex3f(a.x1,a.y1,a.z1);
-					
-					if(a.z2>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						glColor3f(.65,.65,.45);
-					}
-					glVertex3f(a.x2,a.y2,a.z2);
-					
-					if(a.z3>1.2){
-						glColor3f(.35,.65,.35);
-					}
-					else{
-						glColor3f(.65,.65,.45);
-					}
-					glVertex3f(a.x3,a.y3,a.z3);
-				}
+				glNormal3f(a.nx1,a.ny1,a.nz1);
+				glTexCoord2f(a.tx1,a.ty1);
+				glVertex3f(a.x1,a.y1,a.z1);
+			
+				glNormal3f(a.nx2,a.ny2,a.nz2);
+				glTexCoord2f(a.tx2,a.ty2);
+				glVertex3f(a.x2,a.y2,a.z2);
+			
+				glNormal3f(a.nx3,a.ny3,a.nz3);
+				glTexCoord2f(a.tx3,a.ty3);
+				glVertex3f(a.x3,a.y3,a.z3);
 			glEnd();
 		}
+		glBindTexture(GL_TEXTURE_2D,0);
     	//GLfloat light0_direction[] = {25.0,25.0,35.0,1.0};
-    	GLfloat light0_direction[] = {condition.x_cam_pos,condition.y_cam_pos,35.0,1.0};
-    	glLightfv(GL_LIGHT1, GL_POSITION,light0_direction);
-//    	glEnable(GL_BLEND);
-//		glBegin(GL_POLYGON);
-//			glColor4f(.15,.15,.85,0.45);
-//			glNormal3f(0,0,1);
-//			glVertex3f(0,0,0);
-//			glVertex3f(setting.map_size_x,0,0);
-//			glVertex3f(setting.map_size_x,setting.map_size_y,0);
-//			glVertex3f(0,setting.map_size_y,0);
-//		glEnd();
-//		glDisable(GL_BLEND);
+    	//glLightfv(GL_LIGHT2, GL_POSITION,light2_direction);
+		glColor3f(1,0,0);
+		glBindTexture(GL_TEXTURE_2D,textures[4]);
+		glBegin(GL_POLYGON);
+			glTexCoord2f(0,0);
+			glVertex3f(-400,-400,-150);
+			glTexCoord2f(0,1);
+			glVertex3f(-400,-400, 250);
+			glTexCoord2f(1,1);
+			glVertex3f(400,-400,  250);
+			glTexCoord2f(1,0);
+			glVertex3f(400,-400, -150);
+		glEnd();
+		
+		glBindTexture(GL_TEXTURE_2D,textures[5]);
+		glBegin(GL_POLYGON);
+			glTexCoord2f(0,0);
+			glVertex3f(400,-400,-150);
+			glTexCoord2f(0,1);        
+			glVertex3f(400,-400, 250);
+			glTexCoord2f(1,1);        
+			glVertex3f(400,400,  250);
+			glTexCoord2f(1,0);        
+			glVertex3f(400,400, -150);
+		glEnd();
+		
+		glBindTexture(GL_TEXTURE_2D,textures[4]);
+		glBegin(GL_POLYGON);
+			glTexCoord2f(0,0);
+			glVertex3f(400,400, -150);
+			glTexCoord2f(0,1);        
+			glVertex3f(400,400,  250);
+			glTexCoord2f(1,1);        
+			glVertex3f(-400,400, 250);
+			glTexCoord2f(1,0);        
+			glVertex3f(-400,400,-150);
+		glEnd();
+		
+		glBindTexture(GL_TEXTURE_2D,textures[5]);
+		glBegin(GL_POLYGON);
+			glTexCoord2f(0,0);
+			glVertex3f(-400,400, -150);
+			glTexCoord2f(0,1);         
+			glVertex3f(-400,400,  250);
+			glTexCoord2f(1,1);         
+			glVertex3f(-400,-400, 250);
+			glTexCoord2f(1,0);         
+			glVertex3f(-400,-400,-150);
+		glEnd();
+		
+		glBindTexture(GL_TEXTURE_2D,textures[6]);
+		glBegin(GL_POLYGON);
+			glTexCoord2f(0,0);
+			glVertex3f(-400,-400, 250);
+			glTexCoord2f(0,1);         
+			glVertex3f(400,-400,  250);
+			glTexCoord2f(1,1);         
+			glVertex3f(400,400, 250);
+			glTexCoord2f(1,0);         
+			glVertex3f(-400,400, 250);
+		glEnd();
+		glBindTexture(GL_TEXTURE_2D,0);
+		glDisable(GL_LIGHT1);
+		
+		
+		//with opacity
+		glDepthMask(GL_FALSE);
+		glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
+		const GLfloat light2_att = 7;
+    	glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION, light2_att);
+    	glLightfv(GL_LIGHT2, GL_POSITION,light1_direction);
+    	glDisable(GL_LIGHT1);
+    	glEnable(GL_LIGHT2);
+    	grasses_pack grassesd = hmap.get_grass_to_draw(condition.x_cam_pos,condition.y_cam_pos);
+		for(int i=0; i<grassesd.data.size(); i++){
+			grass_object grass_o = grassesd.data[i];
+			draw_model(grass_o.translate, grass_o.scale, grass_o.rotate_angs, grass_o.model, grass_o.texture);
+			
+		}
+		glDisable(GL_LIGHT2);
+		glEnable(GL_LIGHT1);
+		glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+		glDepthMask(GL_TRUE);
     glPopMatrix();
     
     glutSwapBuffers();  
@@ -305,10 +381,14 @@ void calculations(){
 	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 	ms = abs(ms);
 	long int dtime = abs(stime-ms);
-	if(dtime<5){
+	if(dtime<setting.frame_time){
 		return;
 	}
 	stime = ms;
+	
+	rotat+=1;
+	
+	float speed_mul = float(dtime)/setting.frame_time;
 	//determine location
 	float fb_move = condition.forward_pressed-condition.back_pressed;
 	float lr_move = condition.left_pressed-condition.right_pressed;
@@ -320,8 +400,8 @@ void calculations(){
 		dmy = condition.y_cam_view - condition.y_cam_pos;
 			
 		length = sqrt(dmx*dmx + dmy*dmy);
-		dmx/= length*setting.move_multiplier;
-		dmy/= length*setting.move_multiplier;
+		dmx/= length*setting.move_multiplier*speed_mul;
+		dmy/= length*setting.move_multiplier*speed_mul;
 			
 		condition.x_cam_view += (dmx*fb_move);
 		condition.y_cam_view += (dmy*fb_move);
@@ -334,8 +414,8 @@ void calculations(){
 		dmy = condition.radius*sin(setting.strafe_angle+condition.x_cam_ang);
 			
 		length = sqrt(dmx*dmx + dmy*dmy);
-		dmx/= length*setting.move_multiplier;
-		dmy/= length*setting.move_multiplier;
+		dmx/= length*setting.move_multiplier*speed_mul;
+		dmy/= length*setting.move_multiplier*speed_mul;
 			
 		condition.x_cam_view += (dmx*lr_move);
 		condition.y_cam_view += (dmy*lr_move);
@@ -350,12 +430,13 @@ void calculations(){
 	
 	//determine height
 	float ground_z = hmap.get_point_height_walk(condition.x_cam_pos,condition.y_cam_pos)+setting.cam_height;
+	
 	float z_elev = 0;
 	//condition.z_cam_pos = hmap.get_point_height_walk(condition.x_cam_pos,condition.y_cam_pos)+setting.cam_height;
 	if(condition.z_inertia!=0){
 		z_elev = condition.z_inertia*0.001;
 		condition.z_cam_pos += z_elev;
-		condition.z_inertia -= setting.jump_speed;
+		condition.z_inertia -= setting.jump_speed*speed_mul;
 		if(condition.z_cam_pos<ground_z){
 			condition.z_cam_pos = ground_z;
 			condition.z_inertia = 0;
@@ -371,11 +452,11 @@ void calculations(){
 
 void InitGL(){
 	glutInitWindowSize( condition.s_width, condition.s_height );     
-	glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH | GLUT_MULTISAMPLE);
-	glutCreateWindow("Xyeta"); 
+	glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH );
+	glutCreateWindow("3ddd"); 
 	
 	//maximize window
-	HWND win_handle = FindWindow(0, "Xyeta");
+	HWND win_handle = FindWindow(0, "3ddd");
   	ShowWindowAsync(win_handle, SW_SHOWMAXIMIZED);
   	
   	
@@ -389,21 +470,34 @@ void InitGL(){
 	glutKeyboardFunc(contr_btns);
 	glutKeyboardUpFunc(contr_release_btns);
 	
+	glClearColor(1,1,1,1);
 	glEnable(GL_TEXTURE_2D);
-	glEnable(GL_COLOR_MATERIAL);
+	glEnable(GL_MULTISAMPLE);
+	
+	//glEnable(GL_COLOR_MATERIAL);
 	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS); 
-	glEnable(GL_NORMALIZE);
+	glDepthFunc(GL_LEQUAL); 
+	//glEnable(GL_NORMALIZE);
 	glEnable(GL_LIGHTING);
 	glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+	//glLightModelf(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+	//glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 	//glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
 	//glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_ALPHA_TEST);
+	//glEnable(GL_ALPHA_TEST);
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glShadeModel(GL_SMOOTH); 
 	
-	textures[0] = LoadTexture("images/dirt.bmp");
+	textures[0] = LoadTexture("images/ground/main2.bmp");
 	textures[1] = LoadTexture("images/grass.bmp");
+	textures[2] = LoadTexture("images/backg/1.bmp");
+	textures[3] = LoadTexture("images/backg/2.bmp");
+	textures[4] = LoadTexture("images/backg/3.bmp");
+	textures[5] = LoadTexture("images/backg/4.bmp");
+	textures[6] = LoadTexture("images/backg/sky.bmp");
+	textures[7] = LoadAlphaTexture("models/DownTrees/diffuse.img2");
 	//glDepthRange(1000.0, 1.0);
 	//glDepthFunc(GL_GEQUAL);
 	glMatrixMode(GL_PROJECTION);  
@@ -413,19 +507,43 @@ void InitGL(){
 	
 	//a.lWave("ambient.wav");
 	//a.play();
+	
 	glEnable(GL_LIGHT1);
-	GLfloat light0_diffuse[] = {0.9, 0.9, 0.9};
+	GLfloat light0_diffuse[] = {1, 1, 1, 1.0};
+	GLfloat light0_ambient[] = {0.3, 0.3, 0.3, 1.0};
     glLightfv(GL_LIGHT1, GL_DIFFUSE, light0_diffuse);
+    glLightfv(GL_LIGHT1, GL_AMBIENT, light0_ambient);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, light0_diffuse);
+    glDisable(GL_LIGHT1);
+    
+	glEnable(GL_LIGHT2);
+    glLightfv(GL_LIGHT2, GL_DIFFUSE, light0_diffuse);
+    glLightfv(GL_LIGHT2, GL_AMBIENT, light0_ambient);
+    glLightfv(GL_LIGHT2, GL_SPECULAR, light0_diffuse);
+    glDisable(GL_LIGHT2);
 	
 	glutMainLoop(); 
 }
 
 
 int main(int argc, char** argv) {
-	condition.x_cam_pos = 5;
-	condition.y_cam_pos = 5;
+	for(int i = 0; i < 12; i++){
+		std::string name;
+		if(i>=10){
+			name = "models/DownTrees/"+std::to_string(i+1)+"_s.obj";
+		}
+		else{
+			name = "models/DownTrees/0"+std::to_string(i+1)+"_s.obj";
+		}
+		loader(name.c_str(),i);
+		std::cout<<name.c_str()<<'\n';
+	}
+	//loader("models/DownTrees/14.obj",0);
+	//loader("models/DownTrees/05_t.obj",1);
+	condition.x_cam_pos = 25;
+	condition.y_cam_pos = 25;
 	condition.z_cam_pos = 5;
-	condition.x_cam_view = 55;
+	condition.x_cam_view = 75;
 	condition.y_cam_view = 5;
 	condition.radius = 50;
 	

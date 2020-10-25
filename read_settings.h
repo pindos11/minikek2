@@ -11,6 +11,9 @@ class settings{
 		int map_size_y;
 		float jump_power;
 		float jump_speed;
+		float max_hgt;
+		int sm_iter;
+		int hgt_mul;
 		void read_settings(){
 			std::string line;
 			std::fstream in("settings.txt");
@@ -49,6 +52,15 @@ class settings{
 					}
 					if(line.substr(0,3)=="jms"){
 						jump_speed = std::stof(line.substr(4));
+					}
+					if(line.substr(0,3)=="msz"){
+						max_hgt = std::stof(line.substr(4));
+					}
+					if(line.substr(0,3)=="msm"){
+						sm_iter = std::stoi(line.substr(4));
+					}
+					if(line.substr(0,3)=="mhm"){
+						hgt_mul = std::stoi(line.substr(4));
 					}
 					
 				}

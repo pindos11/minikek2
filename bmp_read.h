@@ -1,10 +1,11 @@
-GLuint LoadTexture( const char * filename )
+GLuint LoadTexture( const char * filename, int rgba = 0 )
 {
 	//std::cout<<"\n";
 	//std::cout<<filename;
 	GLuint texture;
 	int width, height;
 	unsigned char *  data;
+	unsigned char *  data_rgba;
 	//unsigned char  alphaed_data[65536];
 	//std::cout<<" named! ";
 	FILE * file;
@@ -36,6 +37,7 @@ GLuint LoadTexture( const char * filename )
 	fread(searcher,4,2,file);
 	width = searcher[0];
 	height = searcher[1];
+	std::cout<<"w: "<<width<<" h: "<<height<<'\n';
 	rewind(file);
 	//std::cout<<width<<"/"<<height<<" "<<filename<<"\n";
 	//image
@@ -44,35 +46,79 @@ GLuint LoadTexture( const char * filename )
 	//getting image data
 	//std::cout<<" size:"<<width*height*3;
 	data = new unsigned char [ width * height * 3 ];
+	data_rgba = new unsigned char [ width * height * 4 ];
 	//std::cout<<" 0";
 	fread( data, width * height * 3, 1, file );
 	fclose( file );
 	//unsigned char* alphaed_data = new unsigned char [ width * height * 3 ];;
 	//std::cout<<" 0 ";
 	//adding alpha/BGR->RGB
-	unsigned char r,g,b;
+	//unsigned char r,g,b;
 	for(int i = 0; i < width * height ; i++)
 	{
 		int dindex = i*3;
-		r = data[dindex];
-		g = data[dindex+1];
-		b = data[dindex+2];
-		data[dindex]=r; 	//red
-		data[dindex+1]=g; 	//green
-		data[dindex+2]=b;		//blue		
+		int aindex = i*4;
+		data_rgba[aindex]=data[dindex+2]; 	//red
+		data_rgba[aindex+1]=data[dindex+1]; 	//green
+		data_rgba[aindex+2]=data[dindex];		//blue
+		if(rgba==1){
+			if(int(data_rgba[aindex])==int(data_rgba[aindex+1])==int(data_rgba[aindex+2])){
+				if(int(data_rgba[aindex])>=225){
+					data_rgba[aindex+3] = char(0);
+				}
+				else{
+					data_rgba[aindex+3] = char(255);
+				}
+			}
+			else{
+				data_rgba[aindex+3] = char(255);
+			}
+		}
+		if(int(data_rgba[aindex])==255 && int(data_rgba[aindex+1])==255 && int(data_rgba[aindex+2])==255){
+			if(rgba == 1){
+				data_rgba[aindex+3] = char(0);
+			}
+			else{
+				data_rgba[aindex+3] = char(255);
+			}
+		}
+		else{
+			data_rgba[aindex+3] = char(255);
+		}
 	}
 	//delete data;
 	//std::cout<<"1";
 	glGenTextures( 1, &texture );
 	glBindTexture( GL_TEXTURE_2D, texture );
-	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_REPLACE);
+	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST );
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height,0,GL_RGB, GL_UNSIGNED_BYTE, data );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height,0,GL_RGBA, GL_UNSIGNED_BYTE, data_rgba );
 	glBindTexture( GL_TEXTURE_2D, 0);
 	free(data);
 	//std::cout<<"2";
 	//free( data );
 	//std::cout<<"3\n";
+	return texture;
+}
+GLuint LoadAlphaTexture( const char * filename ){
+	unsigned char * data = new unsigned char [ 256 * 256 * 4 ];
+	FILE * file;
+	file = fopen( filename, "rb" );
+	if ( file == NULL ) {
+		std::cout<<filename<<"\n";
+		return 0;
+	}
+	fread(data,256 * 256 * 4,1,file);
+	
+	GLuint texture;
+	glGenTextures( 1, &texture );
+	glBindTexture( GL_TEXTURE_2D, texture );
+	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 256, 256 ,0,GL_RGBA, GL_UNSIGNED_BYTE, data );
+	glBindTexture( GL_TEXTURE_2D, 0);
+	free(data);
 	return texture;
 }

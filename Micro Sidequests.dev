@@ -18,8 +18,8 @@ ExeOutput=
 ObjectOutput=
 LogOutput=
 LogOutputEnabled=0
-OverrideOutput=0
-OverrideOutputName=Micro Sidequests.exe
+OverrideOutput=1
+OverrideOutputName=Game.exe
 HostApplication=
 UseCustomMakefile=0
 CustomMakefile=
@@ -29,7 +29,7 @@ IncludeVersionInfo=0
 SupportXPThemes=0
 CompilerSet=3
 CompilerSettings=0000000100000000000000000
-UnitCount=7
+UnitCount=8
 
 [VersionInfo]
 Major=1
@@ -112,6 +112,16 @@ BuildCmd=
 
 [Unit7]
 FileName=simple_objects.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit8]
+FileName=obj_reader.h
 CompileCpp=1
 Folder=
 Compile=1

@@ -1,6 +1,62 @@
 #define START_POINTS_PERCENT 5.0
-#define MAX_HGT 40.0
 #define SMOOTH_N 1
+
+class grass_object{
+	public:
+		vec3 scale;
+		vec3 rotate_angs;
+		vec3 translate;
+		int model;
+		int texture;
+	grass_object(){
+		model = rand_gen.get_rand_val();
+		model %= 5;
+		
+		texture = 7;
+		float minusx = rand_gen.get_floated();
+		float minusy = rand_gen.get_floated();
+		
+		translate.x = rand_gen.get_rand_val()%(setting.map_size_x-2)+1;
+		translate.y = rand_gen.get_rand_val()%(setting.map_size_y-2)+1;
+		
+		if(minusx>=0.5){
+			translate.x-=rand_gen.get_floated();
+		}
+		else{
+			translate.x+=rand_gen.get_floated();
+		}
+		
+		if(minusy>=0.5){
+			translate.y-=rand_gen.get_floated();
+		}
+		else{
+			translate.y+=rand_gen.get_floated();
+		}
+		//std::cout<<"grass x: "<<translate.x<<" y: "<<translate.y<<'\n';
+		
+		
+		scale.x = scale.y  = 0.01;
+		scale.z = 0.01;
+		rotate_angs.x = 90.0;
+		rotate_angs.y = rand_gen.get_rand_val()%270;
+		rotate_angs.z = 0;
+	}
+	int am_i_between_coords(int xmin, int ymin, int xmax, int ymax){
+		if(xmin>translate.x){
+			return 0;
+		}
+		if(ymin>translate.y){
+			return 0;
+		}
+		if(xmax<translate.x){
+			return 0;
+		}
+		if(ymax<translate.y){
+			return 0;
+		}
+		return 1;
+	}
+};
 
 class height_map_position{
 	public:
@@ -11,7 +67,7 @@ class height_map_position{
 		}
 		height_map_position(){
 			id = id_generator.get_new_id();
-			height = -MAX_HGT - 1;
+			height = -setting.max_hgt - 1;
 		}
 };
 
@@ -53,6 +109,21 @@ class map_triangle{
 		float get_medium_height(){
 			return (z1+z2+z3)/3.0;
 		}
+		int am_i_between_coords(int xmin, int ymin, int xmax, int ymax){
+			if(xmin>x1 || xmin>x2 || xmin>x3){
+				return 0;
+			}
+			if(ymin>y1 || ymin>y2 || ymin>y3){
+				return 0;
+			}
+			if(xmax<x1 || xmax<x2 || xmax<x3){
+				return 0;
+			}
+			if(ymax<y1 || ymax<y2 || ymax<y3){
+				return 0;
+			}
+			return 1;
+		}
 		float x1;
 		float x2;
 		float x3;
@@ -77,9 +148,28 @@ class map_triangle{
 		float ny3;
 		float nz3;
 		
+		float tx1;
+		float ty1;
+		
+		float tx2;
+		float ty2;
+		
+		float tx3;
+		float ty3;
+		
 		float nx;
 		float ny;
 		float nz;
+};
+
+class triangles_pack{
+	public:
+		std::vector<map_triangle> data;
+};
+
+class grasses_pack{
+	public:
+		std::vector<grass_object> data;
 };
 
 class height_map{
@@ -87,10 +177,23 @@ class height_map{
 		std::vector<std::vector<height_map_position>> map;
 		std::vector<std::vector<height_map_position>> map2;
 		std::vector<std::vector<height_map_position>> plains;
+		float max_hgt;
 		//height_map_position map[HMAP_SIZEX][HMAP_SIZEY];
 		//height_map_position map2[HMAP_SIZEX][HMAP_SIZEY];
 	public:
 		std::vector<map_triangle> triangles;
+		std::vector<grass_object> grasses;
+		triangles_pack buf_triag;
+		grasses_pack buf_grass;
+		int draw_x = 0;
+		int draw_y = 0;
+		
+		int draw_xg = 0;
+		int draw_yg = 0;
+		
+		int buf_t_filled = 0;
+		int buf_g_filled = 0;
+		int buf_refilled = 0;
 		float fill_triangles(){
 			for(int i = 0; i<setting.map_size_x-1; i++){
 				for(int j = 0; j<setting.map_size_y-1; j++){
@@ -138,6 +241,61 @@ class height_map{
 					triangle.ny = triangle.ny1;
 					triangle.nz = triangle.nz1;
 					
+					float topz = triangle.z1;
+					if(triangle.z2>topz){
+						topz = triangle.z2;
+						if(triangle.z3>topz){
+							topz = triangle.z3;
+							triangle.tx1 = 1;
+							triangle.tx2 = 0;
+							triangle.tx3 = 0.5;
+						}
+						else{
+							triangle.tx1 = 0;
+							triangle.tx2 = 0.5;
+							triangle.tx3 = 1;
+						}
+					}
+					else{
+						triangle.tx1 = 0.5;
+						triangle.tx2 = 0;
+						triangle.tx3 = 1;
+					}
+					
+					triangle.ty1 = triangle.z1/float(max_hgt);
+					triangle.ty2 = triangle.z2/float(max_hgt);
+					triangle.ty3 = triangle.z3/float(max_hgt);
+					
+					if(triangle.ty1 == triangle.ty2 && triangle.ty2 == triangle.ty3){
+						triangle.ty1 = 1;
+						triangle.ty2 = 0.8;
+						triangle.ty3 = 0.8;
+					}
+					
+					if(triangle.ty1>1){
+						triangle.ty1 = 1;
+					}
+					if(triangle.ty1<0){
+						triangle.ty1 = 0;
+					}
+					
+					if(triangle.ty2>1){
+						triangle.ty2 = 1;
+					}
+					if(triangle.ty2<0){
+						triangle.ty2 = 0;
+					}
+					
+					if(triangle.ty3>1){
+						triangle.ty3 = 1;
+					}
+					if(triangle.ty3<0){
+						triangle.ty3 = 0;
+					}
+					
+					
+					//std::cout<<"x: "<<triangle.tx1<<" y: "<<triangle.ty1<<'\n';
+					
 					triangles.push_back(triangle);
 					
 					triangle.x1 = i+1;
@@ -179,6 +337,58 @@ class height_map{
 					triangle.nx = triangle.nx1;
 					triangle.ny = triangle.ny1;
 					triangle.nz = triangle.nz1;
+					
+					topz = triangle.z1;
+					if(triangle.z2>topz){
+						topz = triangle.z2;
+						if(triangle.z3>topz){
+							topz = triangle.z3;
+							triangle.tx1 = 1;
+							triangle.tx2 = 0;
+							triangle.tx3 = 0.5;
+						}
+						else{
+							triangle.tx1 = 0;
+							triangle.tx2 = 0.5;
+							triangle.tx3 = 1;
+						}
+					}
+					else{
+						triangle.tx1 = 0.5;
+						triangle.tx2 = 0;
+						triangle.tx3 = 1;
+					}
+					triangle.ty1 = triangle.z1/float(max_hgt);
+					triangle.ty2 = triangle.z2/float(max_hgt);
+					triangle.ty3 = triangle.z3/float(max_hgt);
+					
+					if(triangle.ty1 == triangle.ty2 && triangle.ty2 == triangle.ty3){
+						triangle.ty1 = 1;
+						triangle.ty2 = 0.8;
+						triangle.ty3 = 0.8;
+					}
+					
+					if(triangle.ty1>1){
+						triangle.ty1 = 1;
+					}
+					if(triangle.ty1<0){
+						triangle.ty1 = 0;
+					}
+					
+					if(triangle.ty2>1){
+						triangle.ty2 = 1;
+					}
+					if(triangle.ty2<0){
+						triangle.ty2 = 0;
+					}
+					
+					if(triangle.ty3>1){
+						triangle.ty3 = 1;
+					}
+					if(triangle.ty3<0){
+						triangle.ty3 = 0;
+					}
+					
 					
 					triangles.push_back(triangle);
 				}
@@ -269,18 +479,19 @@ class height_map{
 				}
 			}
 		}
+		
 		float get_rand_height(){
-			float result = rand_gen.get_folated();
+			float result = rand_gen.get_n_floated(setting.hgt_mul);
 			result = round(result*1000.0)/100.0;
-			float change_sign = rand_gen.get_folated();
-			if(change_sign >= 0.5){
+			float change_sign = rand_gen.get_n_floated(setting.hgt_mul);
+			if(change_sign >= 0.6){
 				result *= -1;
 			}
-			if(result>MAX_HGT){
-				result = MAX_HGT;
+			if(result>setting.max_hgt){
+				result = setting.max_hgt;
 			}
-			if(result<-MAX_HGT){
-				result = -MAX_HGT;
+			if(result<0){
+				result = 0;
 			}
 			return result;
 		}
@@ -294,6 +505,99 @@ class height_map{
 			return a;
 		}
 		
+		triangles_pack get_to_draw(float x, float y){
+			int draw_quad = 50;
+			int draw_hold = 10;
+			int do_draw = 0;
+			if(abs(draw_x-x)>draw_hold){
+				do_draw = 1;
+			}
+			if(abs(draw_y-y)>draw_hold){
+				do_draw = 1;
+			}
+			if(do_draw==0 && buf_t_filled == 1){
+				//std::cout<<"use_buffer"<<'\n';
+				buf_refilled = 0;
+				return buf_triag;
+			}
+			buf_refilled = 1;
+			draw_y = y;
+			draw_x = x;
+			
+			int minx = x - draw_quad/2;
+			int maxx = x + draw_quad/2;
+			int miny = y - draw_quad/2;
+			int maxy = y + draw_quad/2;
+			if(minx<0){
+				minx = 0;
+			}
+			if(miny<0){
+				miny = 0;
+			}
+			if(maxx>=setting.map_size_x){
+				maxx = setting.map_size_x-1;
+			}
+			if(maxy>=setting.map_size_y){
+				maxy = setting.map_size_y-1;
+			}
+			
+			triangles_pack items;
+			for(int i = 0; i<triangles.size(); i++){
+				map_triangle tri = triangles[i];
+				if(tri.am_i_between_coords(minx,miny,maxx,maxy)==1){
+					items.data.push_back(tri);
+				}
+			}
+			buf_t_filled = 1;
+			buf_triag = items;
+			return items;	
+		}
+		
+		grasses_pack get_grass_to_draw(float x, float y){
+			int draw_quad = 50;
+			int draw_hold = 10;
+			int do_draw = 0;
+			if(abs(draw_xg-x)>draw_hold){
+				do_draw = 1;
+			}
+			if(abs(draw_yg-y)>draw_hold){
+				do_draw = 1;
+			}
+			if(do_draw==0 && buf_g_filled == 1){
+				return buf_grass;
+			}
+			buf_refilled = 1;
+			draw_yg = y;
+			draw_xg = x;
+			
+			int minx = x - draw_quad/2;
+			int maxx = x + draw_quad/2;
+			int miny = y - draw_quad/2;
+			int maxy = y + draw_quad/2;
+			if(minx<0){
+				minx = 0;
+			}
+			if(miny<0){
+				miny = 0;
+			}
+			if(maxx>=setting.map_size_x){
+				maxx = setting.map_size_x-2;
+			}
+			if(maxy>=setting.map_size_y){
+				maxy = setting.map_size_y-2;
+			}
+			
+			grasses_pack items;
+			for(int i = 0; i<grasses.size(); i++){
+				grass_object grass1 = grasses[i];
+				if(grass1.am_i_between_coords(minx,miny,maxx,maxy)==1){
+					items.data.push_back(grass1);
+				}
+			}
+			buf_g_filled = 1;
+			buf_grass = items;
+			return items;
+		}
 		
 		float get_point_height(int x, int y){
 			if(x>=0 && x<setting.map_size_x && y>=0 && y<setting.map_size_y){
@@ -301,7 +605,7 @@ class height_map{
 				f = map[x][y];
 				return f.height;
 			}
-			return -MAX_HGT - 1;
+			return -setting.max_hgt - 1;
 		}
 		
 		float get_point_height_walk(float x, float y){
@@ -312,6 +616,18 @@ class height_map{
 				}
 			}
 			
+		}
+		
+		void add_grass(){
+			int grass = (setting.map_size_x * setting.map_size_y)/0.5;
+			for(int i = 0; i<grass; i++){
+				grass_object t;
+				t.translate.z = get_point_height_walk(t.translate.x, t.translate.y);
+				if(t.translate.z>=max_hgt/3){
+					grasses.push_back(t);
+				}
+				
+			}	
 		}
 		
 		float get_smooth_near(int x, int y){
@@ -344,58 +660,59 @@ class height_map{
 			int ly = y;
 			amt = 1.0;
 			tvalue = get_point_height(ltx,lty);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(tx,ty);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(rtx,rty);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(rx,ry);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(rbx,rby);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(bx,by);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(lbx,lby);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tvalue = get_point_height(lx,ly);
-			if(tvalue != -MAX_HGT - 1){
+			if(tvalue != -setting.max_hgt - 1){
 				amt+=1.0;
 				tot_h += tvalue;
 			}
 			tot_h += get_point_height(x,y);
 			tot_h = tot_h/amt;
-			if(tot_h>MAX_HGT){
-				tot_h = MAX_HGT;
+			//tot_h = get_point_height(x,y) - tot_h/2.0;
+			if(tot_h>setting.max_hgt){
+				tot_h = setting.max_hgt;
 			}
-			if(tot_h<-MAX_HGT){
-				tot_h = -MAX_HGT;
+			if(tot_h<0){
+				tot_h = 0;
 			}
 			return tot_h;
 		}
 		
 		int is_on_plain(int x, int y){
-			if(plains.at(x).at(y).height != -MAX_HGT - 1){
+			if(plains.at(x).at(y).height != -setting.max_hgt - 1){
 				return 1;
 			}
 			return 0;
@@ -411,6 +728,17 @@ class height_map{
 			}
 		}
 		
+		void set_max_hgt(){
+			max_hgt = map.at(0).at(0).height;
+			for(int i = 0; i<setting.map_size_x; i++){
+				for(int j = 0; j<setting.map_size_y; j++){
+					if(map.at(i).at(j).height > max_hgt){
+						max_hgt = map.at(i).at(j).height;
+					}
+				}
+			}
+		}
+		
 		void generate_map(int seed, float multiplier){		
 			for(int i = 0; i<setting.map_size_x; i++){
 				for(int j = 0; j<setting.map_size_y; j++){
@@ -420,7 +748,7 @@ class height_map{
 			apply_plains();
 			std::cout<<"generated"<<'\n';
 			//smooth shit
-			for(int ctr = 0; ctr<5; ctr++){
+			for(int ctr = 0; ctr<setting.sm_iter; ctr++){
 				for(int i = 0; i<setting.map_size_x; i++){
 					for(int j = 0; j<setting.map_size_y; j++){
 						if(is_on_plain(i,j)==1){
@@ -441,8 +769,11 @@ class height_map{
 					}
 				}
 			}
+			set_max_hgt();
 			std::cout<<"smoothed"<<'\n';
 			fill_triangles();
+			
+			add_grass();
 					
 		}
 		

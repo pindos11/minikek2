@@ -1,11 +1,41 @@
+#fov
 fov=60.0
-ftm=100.0
+
+#draw next frame after ftm ms
+ftm=10
+
+#strafe angle
 tan=90.0
-smu=70.0
+
+#speed
+smu=30.0
+
+#mouse sensitivity X (higher is slower)
 rox=6.5
+
+#mouse sensitivity X (higher is faster lol)
 roy=4.5
-hgt=0.7
-msx=70
-msy=70
-jmp=40
-jms=0.3
+
+#camera height
+hgt=0.3
+
+#map size x
+msx=75
+
+#map size y
+msy=75
+
+#map height max
+msz=85.0
+
+#jump power
+jmp=10
+
+#something related to landing speed after jump
+jms=0.35
+
+#map height smooth iterations
+msm=5
+
+#map height delta multiplier (higher - more hills)
+mhm=4
